@@ -1,0 +1,40 @@
+# Render Blueprint — Smart Inventory & Stock Alert Platform
+#
+# Deploys the full stack on Render:
+#   1. inventory-backend  — Node.js web service (zero dependencies)
+#   2. inventory-frontend — React static site (Vite build)
+#
+# Deploy:  https://render.com/deploy?repo=<your-repo>
+# Or:      `render blueprint launch` from the repo root.
+#
+# After deployment, the frontend reaches the backend at:
+#   https://inventory-backend.onrender.com
+
+services:
+  # ---------------------------------------------------------------
+  # Backend API (node:sqlite + node:http, zero npm dependencies)
+  # ---------------------------------------------------------------
+  - type: web
+    name: inventory-backend
+    runtime: node
+    rootDir: backend
+    plan: free
+    buildCommand: echo "no build step required"
+    startCommand: node server.js
+    healthCheckPath: /health
+    envVars:
+      - key: NODE_VERSION
+        value: "22"
+
+  # ---------------------------------------------------------------
+  # Frontend (React + Vite → static files)
+  # ---------------------------------------------------------------
+  - type: static
+    name: inventory-frontend
+    rootDir: frontend
+    buildCommand: npm install && npm run build
+    publishPath: dist
+    envVars:
+      # Point the built frontend at the deployed backend.
+      - key: VITE_API_BASE
+        value: https://inventory-backend.onrender.com
