@@ -95,6 +95,9 @@ function toErrorResponse(err) {
   if (message.includes('FOREIGN KEY constraint failed')) {
     return { status: 400, body: { error: 'Invalid data: referenced record does not exist' } };
   }
+  if (message.includes('UNIQUE constraint failed')) {
+    return { status: 400, body: { error: 'Invalid data: duplicate record' } };
+  }
   console.error('[unhandled]', err);
   return { status: 500, body: { error: 'Internal server error' } };
 }

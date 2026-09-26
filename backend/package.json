@@ -12,6 +12,7 @@
     "dev": "node --watch server.js",
     "seed": "node scripts/seed.js",
     "seed:force": "node scripts/seed.js --force",
+    "db:check": "node scripts/db-check.js",
     "test": "node --test \"test/*.test.mjs\""
   }
 }

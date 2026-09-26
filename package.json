@@ -1,0 +1,16 @@
+{
+  "name": "smart-inventory-platform",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Smart Inventory & Stock Alert Platform - Hackathon MVP",
+  "scripts": {
+    "start": "npm --prefix backend start",
+    "dev:backend": "npm --prefix backend run dev",
+    "dev:frontend": "npm --prefix frontend run dev",
+    "dev": "npm --prefix frontend run dev",
+    "build": "npm --prefix frontend run build",
+    "test": "npm --prefix backend test",
+    "seed": "npm --prefix backend run seed",
+    "seed:force": "npm --prefix backend run seed:force"
+  }
+}

@@ -7,7 +7,7 @@
  */
 
 import { notFound, badRequest } from './http.js';
-import { nowIso } from './db.js';
+import { nowIso, withTransaction } from './db.js';
 
 export const STATUS = {
   NORMAL: 'NORMAL',
@@ -104,21 +104,14 @@ export function syncAlertsForProduct(db, product) {
   return status;
 }
 
-/** Runs a function inside an IMMEDIATE transaction, rolling back on error. */
+/**
+ * Runs a function inside an IMMEDIATE transaction, rolling back on error.
+ * Delegates to the database layer, which owns the transaction primitive (and
+ * makes it re-entrant, so a domain operation can compose with a caller's
+ * transaction without committing early).
+ */
 export function inTransaction(db, fn) {
-  db.exec('BEGIN IMMEDIATE');
-  try {
-    const result = fn();
-    db.exec('COMMIT');
-    return result;
-  } catch (err) {
-    try {
-      db.exec('ROLLBACK');
-    } catch {
-      /* already rolled back */
-    }
-    throw err;
-  }
+  return withTransaction(db, fn);
 }
 
 /**
