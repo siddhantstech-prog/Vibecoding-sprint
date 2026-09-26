@@ -21,8 +21,9 @@ Other scripts:
 
 ```bash
 npm run dev         # same, with --watch reload
-npm test            # 25 integration tests over real HTTP
+npm test            # 25 API integration tests + 32 database layer tests
 npm run seed        # insert demo products (no-op if data exists)
+npm run db:check    # inspect the live schema + run SQLite integrity checks
 ```
 
 Environment variables:
@@ -57,8 +58,60 @@ The database file and demo seed are created automatically on first boot.
 (`LOW_STOCK`\|`OUT_OF_STOCK`), `message`, `status`
 (`UNRESOLVED`\|`RESOLVED`), `created_at`
 
-Integrity is enforced in the schema, not just in code: CHECK constraints block
-negative stock, and CASCADE removes movements/alerts when a product is deleted.
+Integrity is enforced in the schema, not just in code:
+
+| Rule                                                    | Enforced by                                   |
+| ------------------------------------------------------- | --------------------------------------------- |
+| `quantity` / `reorder_level` / `price >= 0`             | `CHECK`                                       |
+| stock quantities are whole units (no `1.5` in stock)    | `CHECK (typeof(col) = 'integer')`             |
+| a movement's `quantity > 0`                             | `CHECK`                                       |
+| movement `type` is `IN` or `OUT`                        | `CHECK`                                       |
+| alert `type` / `status` values are valid                | `CHECK`                                       |
+| movements/alerts belong to a real product               | `FOREIGN KEY ... REFERENCES products(id)`     |
+| deleting a product removes its movements + alerts        | `ON DELETE CASCADE` (no orphaned rows)        |
+| only one **active** alert per product + type            | partial `UNIQUE INDEX ... WHERE status='UNRESOLVED'` |
+
+Resolved alerts never conflict with that unique index, so alert history is
+unlimited and can be reopened once the current alert is resolved.
+
+## Schema migrations
+
+The schema is versioned with SQLite's `PRAGMA user_version`. `openDatabase()`
+applies any pending migration in one transaction, so a database file written by
+an older commit is upgraded in place — data and ids are preserved:
+
+| Version | Change                                                                                  |
+| ------- | --------------------------------------------------------------------------------------- |
+| 1       | Initial schema (as shipped in commit `6eff27d`) — frozen, never edited                   |
+| 2       | Whole-unit stock constraint, one-unresolved-alert-per-product/type index                |
+
+Migration 2 rebuilds `products` using SQLite's documented table-rebuild
+procedure, with `PRAGMA foreign_keys` switched off for the duration so dropping
+the old table does not cascade into `stock_movements`/`alerts`. Before the
+unique index is created, any legacy duplicate `UNRESOLVED` alerts are demoted to
+`RESOLVED` (the oldest row stays active) rather than deleted, so no history is
+lost.
+
+`npm run db:check` prints the live schema, indexes, row counts, and the result
+of `PRAGMA integrity_check` + `PRAGMA foreign_key_check`, exiting non-zero if the
+database is not exactly what the backend expects.
+
+## Database tests
+
+`test/db.test.mjs` (32 tests) talks to SQLite directly, so the guarantees above
+are asserted at the layer that actually enforces them:
+
+- schema shape: tables, columns and all four indexes present
+- every `CHECK` / `NOT NULL` / `UNIQUE` rule rejects bad data (fractional stock,
+  zero/negative movement quantities, invalid enums, duplicate active alerts)
+- foreign keys reject orphans; `DELETE` cascades; `PRAGMA foreign_key_check`
+  reports nothing
+- transactions roll back on error, commit on success, and nest safely
+- seeding is idempotent and leaves no partial rows when it fails
+- a legacy v1 database is migrated in place with every row and id preserved
+- data persists across close/reopen and across a server restart
+- the `NORMAL -> LOW_STOCK -> OUT_OF_STOCK -> NORMAL` alert cycle keeps exactly
+  one active alert and never loses history
 
 ## Endpoints
 
