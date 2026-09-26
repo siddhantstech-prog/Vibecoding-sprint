@@ -29,7 +29,7 @@ services:
   # ---------------------------------------------------------------
   # Frontend (React + Vite → static files)
   # ---------------------------------------------------------------
-  - type: static
+  - type: web-static
     name: inventory-frontend
     rootDir: frontend
     buildCommand: npm install && npm run build
